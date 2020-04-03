@@ -96,6 +96,7 @@ def load_csv(csv_file_name):
     rdk_lg.setLevel(RDLogger.CRITICAL)
     with open(csv_file_name,"r") as csvf:
         ligands = [ list(line.split(",")) for line in csvf.read().split("\n") ]
+    ligands = ligands[1:]
     # Convert to mol objects.
     print("Converting ligands to mol objects.")
     valid_ligands = []
