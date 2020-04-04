@@ -15,75 +15,8 @@ import numpy as np
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import PandasTools
 from rdkit import RDLogger
-
-
-############################################################
-
-
-NAME_TO_CHARGE = {
-    'H':1,
-    'D':1,   #Deuterium?
-    'C':6, 
-    'N':7, 
-    'O':8, 
-    'F':9, 
-    'G':12,  #Mg
-    'P':15, 
-    'S':16, 
-    'L':17,  #Cl
-    'Z':30,  #Zn
-    'E':34,  #Se
-    'R':35   #Br
-}
-
-
-def atomic_charge(aname):
-    # Map first letter of atom name from PDB to an atomic charge.
-    atype = aname[0]
-    if atype not in NAME_TO_CHARGE:
-        print("Error: Unknown atom type: '%s' from '%s'!"%(atype,aname))
-        sys.exit()
-    return NAME_TO_CHARGE[atype]
-
-
-def write_lig_file(mol,ligfn):
-    with open(ligfn,"w") as ligf:
-        atoms = mol.GetAtoms();
-        # Write number of atoms
-        ligf.write("%d\n"%(len(atoms)))
-        # Write atomic charges
-        for atom in atoms:
-            ligf.write("%s "%(str(atom.GetAtomicNum())))
-        ligf.write("\n")
-        # Write formal charges
-        for atom in atoms:
-            ligf.write("%s "%(str(atom.GetFormalCharge())))
-        ligf.write("\n")
-        # Write bond matrix
-        for ndx_a in range(0, len(atoms)):
-            for ndx_b in range(0, len(atoms)):
-                bond = mol.GetBondBetweenAtoms(ndx_a, ndx_b)
-                if bond != None:
-                    if bond.GetIsAromatic():
-                        ligf.write("4")
-                    else:
-                        btype = str(bond.GetBondType())
-                        if btype == "SINGLE":
-                            btype = "1"
-                        elif btype == "DOUBLE":
-                            btype = "2"
-                        elif btype == "TRIPLE":
-                            btype = "3"
-                        ligf.write(str(btype))
-                else:
-                    ligf.write("0")                    
-                ligf.write(" ")
-            ligf.write("\n")
-        # Write (empty) distance matrix
-        for ndx_a in range(0, len(atoms)):
-            for ndx_b in range(0, len(atoms)):
-                ligf.write("0 ")
-            ligf.write("\n")
+sys.path.append("../../tools/")
+from sdf_to_dataset import write_lig_file
 
 
 ############################################################
