@@ -2,12 +2,6 @@
 ############################################################
 
 
-# http://www.bindingdb.org/bind/downloads/BindingDB_All_terse_2D_2019m4.sdf.zip
-
-
-############################################################
-
-
 import os
 import sys
 import argparse
@@ -28,12 +22,12 @@ from Bio.PDB import *
 ############################################################
 
 
-IC50_cutoff = 10000     # nM
-NHGD_cutoff = 4         # A
-BATCH_SIZE  = 512       # PDBs
-max_ptn_sz  = 10000     # atoms
-min_ptn_sz  = 500       # atoms
-INFERENCE_ONLY = True   # no affinity data, all labelled no-bind
+IC50_cutoff = 10000 # nM
+NHGD_cutoff = 4     # A
+BATCH_SIZE  = 512   # PDBs
+max_ptn_sz  = 10000 # atoms
+min_ptn_sz  = 500   # atoms
+
 
 ############################################################
 
@@ -138,10 +132,7 @@ def write_map_file(ligands,proteins,outdir="data/"):
                 # Get the ligand and convert to bind / nobind.
                 lig = ligands[ligid]
                 ic50_str = str(lig[2])
-                if INFERENCE_ONLY != True:
-                    bind = True if ic50_str[0] != '>' and float(ic50_str[1:]) <= IC50_cutoff else False
-                else:
-                    bind = np.random.randint(2, size=1)[0]
+                bind = True if ic50_str[0] != '>' and float(ic50_str[1:]) <= IC50_cutoff else False
                 n_bind   += int(bind)
                 n_nobind += int(not bind)
                 # Write two input files, nhg before lig.
@@ -161,63 +152,46 @@ def write_map_file(ligands,proteins,outdir="data/"):
 
 ############################################################
 
-def load_csv(csv_file_name):
-    print("Loading CSV.")
-    # Parse the CSV file.
+
+def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
+    print("Loading sdf.")
+    # Parse the SDF file into a Pandas dataframe.
     rdk_lg = RDLogger.logger()
     rdk_lg.setLevel(RDLogger.CRITICAL)
-    with open(csv_file_name,"r") as csvf:
-        ligands = [ list(line.split(",")) for line in csvf.read().split("\n") ]
-    # Convert to mol objects.
-    print("Converting ligands to mol objects.")
-    valid_ligands = []
-    for ndx,ligand in enumerate(ligands):
-        if len(ligand) == 1 and ligand[0] == "":
-            continue
-        if len(ligand) != 2:
-            print(ligand)
-            continue
-        ligand.append(Chem.MolFromSmiles(ligand[1]))
-        valid_ligands.append(ligand)
-        if ndx < 10:
-            print(ligand)
-        elif ndx == 10:
-            print("...")
-    print("Done creating mol objects.")
-    return valid_ligands
-
-
-def split_sdf(file_name,outdir="data/"):
-
-    if ".sdf" in file_name:
-        print("Loading sdf.")
-
-        rdk_lg = RDLogger.logger()
-        rdk_lg.setLevel(RDLogger.CRITICAL)
-        df = PandasTools.LoadSDF(sdf_file_name,
+    df = PandasTools.LoadSDF(sdf_file_name,
                              smilesName='SMILES',
                              molColName='Molecule',
                              includeFingerprints=False)
-
-    if ".csv" in file_name:
-        print("Loading CSV.")
-        # Parse the CSV file.
-        rdk_lg = RDLogger.logger()
-        rdk_lg.setLevel(RDLogger.CRITICAL)
-        with open(file_name,"r") as csvf:
-            pdb_list = [ list(line.split(",")) for line in csvf.read().split("\n") ]
-        df = pd.DataFrame(columns=pdb_list[0].append('Molecule'))
-        for pdb in pdb_list[1:-1]:
-            print("pdb=",pdb)
-            df = df.append({'PDB ID':pdb}, ignore_index=True)
     print("Raw cols = ", [str(x) for x in df.columns])
+    # Take a simpler path when only extracting ligands.
+    if lig_only:
+        df_list=['SMILES','Molecule']
+        df_selected = df[df_list].copy()
+        print("Selected cols = ", [str(x) for x in df_selected.columns])
+        # Drop any rows with missing data.
+        df_selected = df_selected.replace('',  np.nan)
+        df_selected = df_selected.replace(',', np.nan)
+        df_selected = df_selected.dropna()
+        r_rows = len(df.index)
+        s_rows = len(df_selected.index)
+        print("Raw rows = ", r_rows)
+        print("Sel rows = ", s_rows)
+        print("Keep pct = %.2f%s"%(((float(s_rows)/float(r_rows))*100.0),'%'))
+        # Build ligand dictionary.
+        uligs = {}
+        for lndx,row in enumerate(df_selected.values):
+            uligs[ lndx ] = row
+        # Write out .lig files and return the data dictionaries.
+        print("Writing per-ligand output files.")
+        for key in uligs:
+            write_lig_file(uligs[key][1],outdir+"/lig/lig%s.lig"%str(key))
+        return uligs, None
     # Select only the needed columns and merge the two PDB cols.
-    #df_list=['PDB ID(s) for Ligand-Target Complex','PDB ID(s) of Target Chain','SMILES','IC50 (nM)','Molecule']
-    df_list=['PDB ID']
+    df_list=['PDB ID(s) for Ligand-Target Complex','PDB ID(s) of Target Chain','SMILES','IC50 (nM)','Molecule']
     df_selected = df[df_list].copy()
-    #df_selected["PDB IDs"] = df_selected['PDB ID(s) for Ligand-Target Complex'] + ',' + df_selected['PDB ID(s) of Target Chain']
+    df_selected["PDB IDs"] = df_selected['PDB ID(s) for Ligand-Target Complex'] + ',' + df_selected['PDB ID(s) of Target Chain']
     print("Selected cols = ", [str(x) for x in df_selected.columns])
-    #df_selected = df_selected[ ["PDB IDs"] + df_list[2:] ]
+    df_selected = df_selected[ ["PDB IDs"] + df_list[2:] ]
     # Drop any rows with missing data.
     df_selected = df_selected.replace('',  np.nan)
     df_selected = df_selected.replace(',', np.nan)
@@ -232,8 +206,7 @@ def split_sdf(file_name,outdir="data/"):
     uligs = {}
     prots_ligs = {}
     for lndx,row in enumerate(df_selected.values):
-        print("row[0]=",row[0])
-        pdbs = row[0][0].split(',')
+        pdbs = row[0].split(',')
         for pdb in pdbs:
             if pdb == '':
                 continue
@@ -249,74 +222,6 @@ def split_sdf(file_name,outdir="data/"):
         lig = uligs[key]
         write_lig_file(lig[3],outdir+"/lig/lig%s.lig"%ndx)
     return uligs, prots_ligs
-
-
-############################################################
-def split_pdb_with_sdf(pdb_id,sdf_file_name,outdir="data/"):
-# This function takes in a PDB-list from csv (from rcsb.org)
-# alongside an sdf file containing compounds to test against every structure in the pdb-list
-
-    print("Loading sdf from ", sdf_file_name)
-
-    rdk_lg = RDLogger.logger()
-    rdk_lg.setLevel(RDLogger.CRITICAL)
-    df = PandasTools.LoadSDF(sdf_file_name,
-                             smilesName='SMILES',
-                             molColName='Molecule',
-                             includeFingerprints=False)
-    PandasTools.AddMoleculeColumnToFrame(df,'SMILES','PDB ID',includeFingerprints=False)
-    # Select only the needed columns and merge the two PDB cols.
-    df_sdf_list = ['PDB ID','Molecule','FDA drugnames']
-    df_selected = df[df_sdf_list].copy()
-    print("Selected SDF cols = ", [str(x) for x in df_selected.columns])
-
-    print("Loading compounds for test against PDB ID = ", pdb_id)
-    #with open(pdb_list_file_name,"r") as csvf:
-    #    pdb_list = [ list(line.split(",")) for line in csvf.read().split("\n") ]
-    #    df = pd.DataFrame(columns=pdb_list[0].append('Molecule'))
-    for mol in df_selected['Molecule']:
-        print("pdb=",pdb_id, ",Molecule=", mol)
-        df = df.append({'PDB ID':pdb_id}, ignore_index=True)
-        
-    print("Raw PDB file cols = ", [str(x) for x in df.columns])
-    # Select only the needed columns and merge the two PDB cols.
-    df_selected = df[df_sdf_list].copy()
-    #df_selected["PDB IDs"] = df_selected['PDB ID(s) for Ligand-Target Complex'] + ',' + df_selected['PDB ID(s) of Target Chain']
-    print("Selected PDB cols = ", [str(x) for x in df_selected.columns])
-    #df_selected = df_selected[ ["PDB IDs"] + df_list[2:] ]
-    # Drop any rows with missing data.
-    df_selected = df_selected.replace('',  np.nan)
-    df_selected = df_selected.replace(',', np.nan)
-    df_selected = df_selected.dropna()
-    r_rows = len(df.index)
-    s_rows = len(df_selected.index)
-    print("Raw rows = ", r_rows)
-    print("Sel rows = ", s_rows)
-    print("Keep pct = %.2f%s"%(((float(s_rows)/float(r_rows))*100.0),'%'))
-    # Build ligand dictionary and a protein dictionary.
-    print("Building protein-ligand dictionary.")
-    uligs = {}
-    prots_ligs = {}
-    for lndx,row in enumerate(df_selected.values):
-        print("row=",row)
-        pdbs = [pdb_id] #row[0].split(',')
-        for pdb in pdbs:
-            if pdb == '':
-                continue
-            if pdb not in prots_ligs:
-                prots_ligs[pdb] = []
-            prots_ligs[pdb] += [ lndx ]
-        uligs[ lndx ] = row
-    print("Unique proteins = ", len(prots_ligs))
-    print("Writing per-ligand output files.")
-    # Write out .lig files and return the data dictionaries.
-    for key in uligs:
-        ndx = str(key)
-        lig = uligs[key]
-        write_lig_file(lig[1],outdir+"/lig/lig%s.lig"%ndx)
-    return uligs, prots_ligs
-
-
 
 
 ############################################################
@@ -441,15 +346,15 @@ def convert_pdbs(proteins,outdir="data/",nworkers=16):
 ############################################################
 
 
-if __name__ == "__main__":
+def main():
     # Parse command line args.
     parser = argparse.ArgumentParser()
-    parser.add_argument('--pdb_id',  type=str,   required=True,   help='Name of PDB structure.')
-    parser.add_argument('--sdf',     type=str,   required=True,   help='Path to SDF file.')
-    parser.add_argument('--out',     type=str,   default="data",  help='Output directory.')
-    parser.add_argument('--threads', type=int,   default=16,      help='Number of threads for PDB processing.')
-    parser.add_argument('--ic50',    type=float, default=10000.0, help='IC50 max cutoff for bind in nM.')
-    parser.add_argument('--nhgr',    type=float, default=4.0,     help='Local NHG radius in A.')
+    parser.add_argument('--sdf',     type=str,           required=True,   help='Path to SDF file.')
+    parser.add_argument('--out',     type=str,           default="data",  help='Output directory.')
+    parser.add_argument('--threads', type=int,           default=16,      help='Number of threads for PDB processing.')
+    parser.add_argument('--ic50',    type=float,         default=10000.0, help='IC50 max cutoff for bind in nM.')
+    parser.add_argument('--nhgr',    type=float,         default=4.0,     help='Local NHG radius in A.')
+    parser.add_argument('--lig_only',action='store_true',default=False,   help='Only extract ligands from SDF.')
     args = parser.parse_args()
     IC50_cutoff = args.ic50
     NHGD_cutoff = args.nhgr
@@ -458,8 +363,10 @@ if __name__ == "__main__":
         if not os.path.exists(args.out+"/"+subdir):
             os.makedirs(args.out+"/"+subdir)
     # First parse and process the SDF file for ligands and PDB-IDs.
-    #ligands, proteins = split_sdf(args.sdf,outdir=args.out)
-    ligands, proteins = split_pdb_with_sdf(args.pdb_id, args.sdf, outdir=args.out)
+    ligands, proteins = split_sdf(args.sdf,outdir=args.out,lig_only=args.lig_only)
+    if args.lig_only:
+        print("Success!")
+        return
     # Next download and process the PDB files for the proteins.
     rejected = convert_pdbs(proteins,outdir=args.out,nworkers=args.threads)
     # Write out a map file listing all the resultant data items.
@@ -490,6 +397,10 @@ if __name__ == "__main__":
             num = dist[count] if count in dist else 0
             distf.write("%d %d\n"%(count,num))
     print("Success!")
-    
-    
+
+
+if __name__ == "__main__":
+    main()
+
+
 ############################################################
