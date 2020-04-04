@@ -3,8 +3,9 @@
 set -e
 
 source ../../tools/enable_env_ubuntu.sh
-mkdir -p ./data/pdb
-wget 'https://files.rcsb.org/download/6VSB.pdb'
-mv 6VSB.pdb ./data/pdb
 
-python ../../tools/create_map.py --lig_dir ../zinc/data/lig --pdbs ./data/pdb --out ./data
+mkdir -p obsolete
+echo "****** Get 6VSB.pdb and Convert to Neightborhood Graph ******"
+python ../../tools/pdb_to_nhg.py --pdbids "6VSB" --out ./data
+echo "****** Create a Map File to Inference from ../bindingdb-fda/ Ligands ******"
+python ../../tools/create_map.py --lig_dir ../bindingdb-fda/data/lig --pdbs "6VSB" --out ./data

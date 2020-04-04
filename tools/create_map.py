@@ -23,7 +23,7 @@ def write_map_file(ligands,proteins,outdir="data/"):
         for pdbfn in proteins:
             for ligfn in ligands:
                 # Write two input files, nhg before lig.
-                out += "2 %s %s"%("../nhg/"+str(pdbfn), "../lig/"+str(ligfn))
+                out += "2 %s %s"%("../nhg/"+str(pdbfn)+".nhg", "../lig/"+str(ligfn))
                 # Write one output, the bind state as 0.
                 bind_float = 0.0 
                 out += " 1 %f"%(bind_float)

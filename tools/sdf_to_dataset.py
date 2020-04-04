@@ -17,13 +17,13 @@ from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import PandasTools
 from rdkit import RDLogger
 from Bio.PDB import *
+from pdb_to_nhg import convert_pdbs
 
 
 ############################################################
 
 
 IC50_cutoff = 10000 # nM
-NHGD_cutoff = 4     # A
 BATCH_SIZE  = 512   # PDBs
 max_ptn_sz  = 10000 # atoms
 min_ptn_sz  = 500   # atoms
@@ -227,125 +227,6 @@ def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
 ############################################################
 
 
-def convert_pdb(pdbid,outdir="data/"):
-    # Print header for each protein and download if needed.
-    status = "---------------- %s ----------------\n"%pdbid
-    bp_pdbl = PDBList(verbose=False)
-    bp_parser = MMCIFParser()
-    bp_pdbl.retrieve_pdb_file(pdbid,pdir=outdir+"/pdb/",file_format="mmCif")
-    pdb_fn = outdir+"/pdb/"+pdbid.lower()+".cif"
-    # Parse the PDB / CIF file into a structure object.
-    structure = None
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        try:
-            structure = bp_parser.get_structure("",pdb_fn)
-        except Exception as ex:
-            status += "!! Failed to parse '%s', skipping 'invalid' PDB ('%s').\n"%(pdb_fn,str(ex))
-            return (pdbid, False, status)
-    # Traverse the PDB structure, looking for the protein chain.
-    status += "Models: %d\n"%(len(structure))
-    chain_A = []
-    for mndx, model in enumerate(structure):
-        status += "  models[%d]: %d chains\n"%(mndx,len(model))
-        chain = None
-        if 'A' in model:
-            chain = model['A']
-            status += "    Selected chain: 'A'\n"
-        else:
-            for c in model:
-                chain = c
-                break
-            status += "    Selected chain: first ('%s')\n"%(chain.get_id())
-        atoms = []
-        for residue in chain:
-            resid = residue.get_full_id()
-            if resid[3][0] == "W" or (resid[3][0][0] == "H" and resid[3][0][1] == "_"):
-                continue                    
-            for atom in residue:
-                atoms.append( atom )
-        chain_A = atoms
-        # !!av: For now, just consider the first model.
-        break
-    status += "    Selected chain len: %d\n"%(len(chain_A))
-    # Convert the selected chain into a NHG.
-    status += "Building neighborhood graph.\n"   
-    try:
-        # Get an array of the atom positions.
-        positions = []
-        for atom in chain_A:
-            positions += list(atom.get_vector()) 
-        positions = np.array(positions, dtype=np.float32)
-        positions = np.reshape(positions, (len(chain_A),3))
-        if positions.shape[0] > max_ptn_sz:
-            raise Exception('Protein too large (%d)!'%(positions.shape[0]))
-        if positions.shape[0] < min_ptn_sz:
-            raise Exception('Protein too small (%d)!'%(positions.shape[0]))
-        # Find pairwise distances between all atoms.
-        distances = spatial.distance.pdist(positions)
-        distances = spatial.distance.squareform(distances)
-        # Find local neighborhoods by removing long (and self) distances.
-        distances[distances == 0.0] = 1.0 + NHGD_cutoff
-        neighborhoods = np.nonzero(distances <= NHGD_cutoff)
-        # Turn the distances / indicies into an explicit edge list.
-        nh_edges = [ (ndx_a, ndx_b, distances[ndx_a][ndx_b]) for ndx_a, ndx_b in zip(*neighborhoods) ]
-        # Examine the local neighborhood sizes to check connectivity.
-        local_nh_sizes = { ndx:0 for ndx in np.unique(neighborhoods[0]) }
-        for ndx in neighborhoods[0]:
-            local_nh_sizes[ndx] += 1
-        if min(local_nh_sizes.values()) < 3:
-            raise Exception('Too few local edges (%d)!'%(min(local_nh_sizes.values())))
-        status += "Neighborhood graph info:\n"
-        status += "  Total edges: %d"%(len(nh_edges))
-        status += "  Local edges:\n"
-        status += "    Min edges: %d\n"%(min(local_nh_sizes.values()))
-        status += "    Max edges: %d\n"%(max(local_nh_sizes.values()))
-    except Exception as ex:
-        # Return a failure if anything went wrong.
-        status += "!! Neighborhood graph failed for '%s', skipping PDB ('%s').\n"%(pdb_fn,str(ex))
-        return (pdbid, False, status)
-    # Write the output NHG and return success.
-    status += "Writing neighborhood graph for '%s'.\n"%(pdbid)
-    write_nhg_file(chain_A,nh_edges,outdir+"/nhg/%s.nhg"%(pdbid))
-    status += "Done converting PDB.\n"
-    return (pdbid, True, status)
-
-
-def chunks(lst, size):
-    # Turn the list into cunks of size 'size'.
-    for i in range(0, len(lst), size):
-        yield lst[i:i+size]
-
-
-def convert_pdbs(proteins,outdir="data/",nworkers=16):
-    print("Processing PDBs.")
-    # Maintain a list of rejected PDBs for later.
-    rejected_pdbs = []
-    # Split all the PDBs into batches for Dask.
-    pdbids = [ str(key) for key in proteins ]
-    batches = [ batch for batch in chunks(pdbids, BATCH_SIZE) ]
-    for bndx, batch in enumerate(batches):
-        print("PDB batch %d of %d (%.2f%s):"%(bndx+1,len(batches),float(bndx)/len(batches)*100.0,"%"))
-        # Create lsit of Dask tasks and launch them with threads.
-        results = [ dask.delayed(convert_pdb)(pdbid,outdir) for pdbid in batch ]
-        with ProgressBar(dt=0.5):
-            results = dask.compute(*results, scheduler='threads', num_workers=nworkers)
-        # Process the results from the batch.
-        for pdbid, flag, status in results:
-            print("%s"%(status),end="")
-            if not flag:
-                rejected_pdbs.append(pdbid)
-    # Finished, so print stats and return the rejected list.
-    print("--------------------------------------")
-    print("Done converting PDBs:")
-    print("  Rejected: %d/%d"%(len(rejected_pdbs),len(proteins)))
-    print("  Accepted: %.2f%s"%(float(len(proteins)-len(rejected_pdbs))*100.0/float(len(proteins)),'%'))
-    return rejected_pdbs
-
-
-############################################################
-
-
 def main():
     # Parse command line args.
     parser = argparse.ArgumentParser()
@@ -357,7 +238,6 @@ def main():
     parser.add_argument('--lig_only',action='store_true',default=False,   help='Only extract ligands from SDF.')
     args = parser.parse_args()
     IC50_cutoff = args.ic50
-    NHGD_cutoff = args.nhgr
     # Create any needed subdirectories in advance.
     for subdir in ("pdb", "nhg", "lig", "map"):
         if not os.path.exists(args.out+"/"+subdir):
@@ -368,7 +248,8 @@ def main():
         print("Success!")
         return
     # Next download and process the PDB files for the proteins.
-    rejected = convert_pdbs(proteins,outdir=args.out,nworkers=args.threads)
+    pdbids = [ str(key) for key in proteins ]
+    rejected = convert_pdbs(pdbids,outdir=args.out,nworkers=args.threads,nhgr=args.nhgr)
     # Write out a map file listing all the resultant data items.
     print("Writing map file for the dataset:")
     rejected = { pdbid:ndx for ndx,pdbid in enumerate(rejected) }
