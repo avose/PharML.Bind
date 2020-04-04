@@ -9,6 +9,7 @@ source activate $PHARML_ENV
 conda install -y -c conda-forge rdkit biopython scipy dask
 conda install -y -c anaconda pip
 pip install tensorflow_gpu==1.15
-pip install graph_nets dm-sonnet==1.25 tensorflow-probability matplotlib
+pip install graph_nets dm-sonnet==1.25 'tensorflow-probability<0.9.0' matplotlib
+pip install horovod
 source deactivate
 conda env list
