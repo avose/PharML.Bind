@@ -1,4 +1,4 @@
-.PHONY: clean dataset
+.PHONY: all dataset clean
 
 CORES=$$(cat /proc/cpuinfo | grep 'processor' | grep ':' | wc -l)
 
