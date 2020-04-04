@@ -12,7 +12,7 @@ MODE=classification
 EPOCHS=1
 INFER_OUT=inference_output.map
 TEMP_DIR=./pharml-covid19
-BS=8
+BS=2
 NT=2
 
 for model in `ls -d ../pretrained-models/mh-gnnx5-ensemble/model_*` ; do
