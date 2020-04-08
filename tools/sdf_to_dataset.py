@@ -27,7 +27,8 @@ IC50_cutoff = 10000 # nM
 BATCH_SIZE  = 512   # PDBs
 max_ptn_sz  = 10000 # atoms
 min_ptn_sz  = 500   # atoms
-
+max_lig_sz  = 200   # atoms
+min_lig_sz  = 8     # atoms
 
 ############################################################
 
@@ -180,7 +181,9 @@ def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
         # Build ligand dictionary.
         uligs = {}
         for lndx,row in enumerate(df_selected.values):
-            uligs[ lndx ] = row
+            latoms = len(row[1].GetAtoms())
+            if latoms >= min_lig_sz and latoms <= max_lig_sz:
+                uligs[ lndx ] = row
         # Write out .lig files and return the data dictionaries.
         print("Writing per-ligand output files.")
         for key in uligs:
@@ -206,6 +209,9 @@ def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
     uligs = {}
     prots_ligs = {}
     for lndx,row in enumerate(df_selected.values):
+        latoms = len(row[-1].GetAtoms())
+        if latoms < min_lig_sz or latoms > max_lig_sz:
+            continue
         pdbs = row[0].split(',')
         for pdb in pdbs:
             if pdb == '':

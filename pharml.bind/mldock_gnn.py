@@ -29,6 +29,8 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import tensorflow as tf
 import sonnet as snt
 import networkx as nx
@@ -40,7 +42,6 @@ import gnn_models as models
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import os
 import sys
 import time
 import argparse
@@ -432,10 +433,6 @@ def run_gnn(args,model_ops,test_items,train_items=None,optimizer=None):
     else:
         save_path = saver.save(sess, model_path)
         print("Worker test checkpoint saved to: %s"%save_path)
-
-        
-
-    
     
     if args.restore != None:
         restore_path = args.restore
@@ -449,14 +446,12 @@ def run_gnn(args,model_ops,test_items,train_items=None,optimizer=None):
         print("Worker fresh checkpoint restore test success.")
         print("To resume training use --restore %s"%str(os.getcwd()+"/"+restore_path))
         print("Training new model.")
-
     
     if args.hvd:
         print("Broadcasting...")
         bcast_op = hvd.broadcast_global_variables(0)
         sess.run(bcast_op)
         print("Done broadcast")
-
 
     # Print total model parameters.
     if DEBUG:

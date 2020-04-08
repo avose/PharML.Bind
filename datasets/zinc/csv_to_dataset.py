@@ -22,6 +22,13 @@ from sdf_to_dataset import write_lig_file
 ############################################################
 
 
+max_lig_sz  = 200   # atoms
+min_lig_sz  = 8     # atoms
+
+
+############################################################
+
+
 def load_csv(csv_file_name):
     print("Loading CSV.")
     # Parse the CSV file.
@@ -39,7 +46,12 @@ def load_csv(csv_file_name):
         if len(ligand) != 2:
             print(ligand)
             continue
-        ligand.append(Chem.MolFromSmiles(ligand[1]))
+        mol = Chem.MolFromSmiles(ligand[1])
+        molsz = len(mol.GetAtoms())
+        if molsz < min_lig_sz or molsz > max_lig_sz:
+            print("Bad ligand size for '%s' (%d)."%(ligand[0],molsz))
+            continue
+        ligand.append(mol)
         valid_ligands.append(ligand)
         if ndx < 10:
             print(ligand)
