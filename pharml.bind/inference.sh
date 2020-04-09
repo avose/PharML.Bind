@@ -52,3 +52,5 @@ echo "============================================================"
 echo "Done testing COVID-19 compounds against all models"
 echo "============================================================"
 wait
+
+python ../tools/ensemble.py --maps pharml-covid19_0/inference_output_0.map:pharml-covid19_1/inference_output_0.map:pharml-covid19_2/inference_output_0.map:pharml-covid19_3/inference_output_0.map:pharml-covid19_4/inference_output_0.map
