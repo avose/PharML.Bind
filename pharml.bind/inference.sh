@@ -15,14 +15,15 @@ TEMP_DIR=./pharml-covid19
 BS=2
 NT=2
 
+mnum=0
 for model in `ls -d ../pretrained-models/mh-gnnx5-ensemble/model_*` ; do
     echo "============================================================"
     echo "Running inference with name \"${MAP_NAME}\" using ${MAP_PATH}"
     echo "Current ensemble model: ${model}"
     echo "============================================================"
-    rm -rf $TEMP_DIR
-    mkdir -p ${TEMP_DIR}
-    cd ${TEMP_DIR}
+    rm -rf ${TEMP_DIR}_${mnum}
+    mkdir -p ${TEMP_DIR}_${mnum}
+    cd ${TEMP_DIR}_${mnum}
     # Start the inference run on a single model
     python ../mldock_gnn.py \
         --map_train "../${MAP_PATH}" \
@@ -41,6 +42,7 @@ for model in `ls -d ../pretrained-models/mh-gnnx5-ensemble/model_*` ; do
         --inference_out ${INFER_OUT} \
         --epochs 1
     cd ..
+    mnum=$((mnum+1))
     echo "============================================================"
     echo "Inference finished with name \"${MAP_NAME}\" using ${MAP_PATH}"
     echo "Current ensemble model: ${model}"
