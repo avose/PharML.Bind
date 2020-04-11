@@ -32,54 +32,6 @@ min_lig_sz  = 8     # atoms
 ############################################################
 
 
-NAME_TO_CHARGE = {
-    'H':1,
-    'D':1,   #Deuterium?
-    'C':6, 
-    'N':7, 
-    'O':8, 
-    'F':9, 
-    'G':12,  #Mg
-    'P':15, 
-    'S':16, 
-    'L':17,  #Cl
-    'Z':30,  #Zn
-    'E':34,  #Se
-    'R':35   #Br
-}
-
-
-def atomic_charge(aname):
-    # Map first letter of atom name from PDB to an atomic charge.
-    atype = aname[0]
-    if atype not in NAME_TO_CHARGE:
-        print("Error: Unknown atom type: '%s' from '%s'!"%(atype,aname))
-        sys.exit()
-    return NAME_TO_CHARGE[atype]
-
-    
-def write_nhg_file(atoms,edges,nhgfn):
-    with open(nhgfn,"w") as nhgf:
-        # Write num atoms and num edges
-        out = [ len(edges), len(atoms) ]
-        out = np.array(out, dtype=np.int32)
-        out.tofile(nhgf)
-        # Write each atom as a 5-tuple: (t,b,x,y,z)
-        out = []
-        for atom in atoms:
-            apos = atom.get_vector()
-            atype = atomic_charge(atom.get_name())
-            out += [ atype, 0.0, apos[0], apos[1], apos[2] ]
-        out = np.array(out, dtype=np.float32)
-        out.tofile(nhgf)
-        # Write each edge as a 3-tuple: (d,ndx_i,ndx_j)
-        out = []
-        for edge in edges:
-            out += [ edge[2], edge[0], edge[1] ]
-        out = np.array(out, dtype=np.float32)
-        out.tofile(nhgf)
-
-
 def write_lig_file(mol,ligfn):
     with open(ligfn,"w") as ligf:
         atoms = mol.GetAtoms();
@@ -153,7 +105,7 @@ def write_map_file(ligands,proteins,outdir="data/"):
 ############################################################
 
 
-def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
+def split_sdf(sdf_file_name,outdir="data/",lig_only=False,tag=""):
     print("Loading sdf.")
     # Parse the SDF file into a Pandas dataframe.
     rdk_lg = RDLogger.logger()
@@ -162,12 +114,11 @@ def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
                              smilesName='SMILES',
                              molColName='Molecule',
                              includeFingerprints=False)
-    print("Raw cols = ", [str(x) for x in df.columns])
+    #print("Raw cols = ", [str(x) for x in df.columns])
     # Take a simpler path when only extracting ligands.
     if lig_only:
         df_list=['SMILES','Molecule']
         df_selected = df[df_list].copy()
-        print("Selected cols = ", [str(x) for x in df_selected.columns])
         # Drop any rows with missing data.
         df_selected = df_selected.replace('',  np.nan)
         df_selected = df_selected.replace(',', np.nan)
@@ -182,7 +133,7 @@ def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
         for lndx,row in enumerate(df_selected.values):
             latoms = len(row[1].GetAtoms())
             if latoms >= min_lig_sz and latoms <= max_lig_sz:
-                uligs[ lndx ] = row
+                uligs[ tag+str(lndx) ] = row
         # Write out .lig files and return the data dictionaries.
         print("Writing per-ligand output files.")
         for key in uligs:

@@ -9,6 +9,7 @@ dud-e:
 	mv all.tar.gz dud-e.tar.gz
 	tar -zxvf dud-e.tar.gz
 	mv all dud-e
+	rm -rf dud-e/fgfr1
 
 dataset: dud-e
 	mkdir -p obsolete

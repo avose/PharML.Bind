@@ -17,6 +17,7 @@ from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import PandasTools
 from rdkit import RDLogger
 from Bio.PDB import *
+from Bio.PDB.PDBExceptions import PDBConstructionWarning
 
 
 ############################################################
@@ -38,6 +39,7 @@ NAME_TO_CHARGE = {
     'O':8, 
     'F':9, 
     'G':12,  #Mg
+    'M':12,  #Mg
     'P':15, 
     'S':16, 
     'L':17,  #Cl
@@ -81,13 +83,18 @@ def write_nhg_file(atoms,edges,nhgfn):
 ############################################################
 
 
-def convert_pdb(pdbid,outdir="data/",nhgr=4):
+def convert_pdb(pdbid,outdir="data/",nhgr=4,download=True):
     # Print header for each protein and download if needed.
     status = "---------------- %s ----------------\n"%pdbid
-    bp_pdbl = PDBList(verbose=False)
-    bp_parser = MMCIFParser()
-    bp_pdbl.retrieve_pdb_file(pdbid,pdir=outdir+"/pdb/",file_format="mmCif")
-    pdb_fn = outdir+"/pdb/"+pdbid.lower()+".cif"
+    if download:
+        bp_pdbl = PDBList(verbose=False)
+        bp_pdbl.retrieve_pdb_file(pdbid,pdir=outdir+"/pdb/",file_format="mmCif")
+        bp_parser = MMCIFParser()
+        pdb_fn = outdir+"/pdb/"+pdbid.lower()+".cif"
+    else:  
+        bp_parser = PDBParser(QUIET=True)
+        warnings.filterwarnings("ignore", category=PDBConstructionWarning)
+        pdb_fn = outdir+"/pdb/"+pdbid.lower()+".pdb"
     # Parse the PDB / CIF file into a structure object.
     structure = None
     with warnings.catch_warnings():
@@ -171,7 +178,7 @@ def chunks(lst, size):
         yield lst[i:i+size]
 
 
-def convert_pdbs(pdbids,outdir="data/",nworkers=16,nhgr=4):
+def convert_pdbs(pdbids,outdir="data/",nworkers=8,nhgr=4,download=True):
     print("Processing PDBs.")
     # Maintain a list of rejected PDBs for later.
     rejected_pdbs = []
@@ -180,7 +187,7 @@ def convert_pdbs(pdbids,outdir="data/",nworkers=16,nhgr=4):
     for bndx, batch in enumerate(batches):
         print("PDB batch %d of %d (%.2f%s):"%(bndx+1,len(batches),float(bndx)/len(batches)*100.0,"%"))
         # Create lsit of Dask tasks and launch them with threads.
-        results = [ dask.delayed(convert_pdb)(pdbid,outdir,nhgr) for pdbid in batch ]
+        results = [ dask.delayed(convert_pdb)(pdbid,outdir,nhgr,download=download) for pdbid in batch ]
         with ProgressBar(dt=0.5):
             results = dask.compute(*results, scheduler='threads', num_workers=nworkers)
         # Process the results from the batch.
@@ -203,7 +210,7 @@ def main():
     # Parse command line args.
     parser = argparse.ArgumentParser()
     parser.add_argument('--out',     type=str,   default="data",  help='Output directory.')
-    parser.add_argument('--threads', type=int,   default=16,      help='Number of threads for PDB processing.')
+    parser.add_argument('--threads', type=int,   default=8,       help='Number of threads for PDB processing.')
     parser.add_argument('--nhgr',    type=float, default=4.0,     help='Local NHG radius in A.')
     parser.add_argument('--pdbids',  type=str,   required=True,   help='List of PDB IDs to convert to NHGs.')
     args = parser.parse_args()
