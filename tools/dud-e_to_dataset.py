@@ -8,10 +8,8 @@ import argparse
 import math
 import warnings
 import collections
-import dask
 import numpy as np
 import pandas as pd
-from dask.diagnostics import ProgressBar
 from scipy import spatial
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import PandasTools
@@ -22,12 +20,8 @@ from pdb_to_nhg import convert_pdbs
 
 ############################################################
 
-
-IC50_cutoff = 10000 # nM
-BATCH_SIZE  = 512   # PDBs
 max_lig_sz  = 200   # atoms
 min_lig_sz  = 8     # atoms
-
 
 ############################################################
 
@@ -235,53 +229,16 @@ def split_sdf(sdf_file_name,outdir="data/",lig_only=False):
 def main():
     # Parse command line args.
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sdf',     type=str,           required=True,   help='Path to SDF file.')
-    parser.add_argument('--out',     type=str,           default="data",  help='Output directory.')
-    parser.add_argument('--threads', type=int,           default=16,      help='Number of threads for PDB processing.')
-    parser.add_argument('--ic50',    type=float,         default=10000.0, help='IC50 max cutoff for bind in nM.')
-    parser.add_argument('--nhgr',    type=float,         default=4.0,     help='Local NHG radius in A.')
-    parser.add_argument('--lig_only',action='store_true',default=False,   help='Only extract ligands from SDF.')
+    parser.add_argument('--out', type=str, default="data", help='Output directory.')
     args = parser.parse_args()
-    IC50_cutoff = args.ic50
     # Create any needed subdirectories in advance.
     for subdir in ("pdb", "nhg", "lig", "map"):
         if not os.path.exists(args.out+"/"+subdir):
             os.makedirs(args.out+"/"+subdir)
-    # First parse and process the SDF file for ligands and PDB-IDs.
-    ligands, proteins = split_sdf(args.sdf,outdir=args.out,lig_only=args.lig_only)
-    if args.lig_only:
-        print("Success!")
-        return
-    # Next download and process the PDB files for the proteins.
-    pdbids = [ str(key) for key in proteins ]
-    rejected = convert_pdbs(pdbids,outdir=args.out,nworkers=args.threads,nhgr=args.nhgr)
+    #rejected = convert_pdbs(pdbids,outdir=args.out,nworkers=args.threads,nhgr=args.nhgr)
     # Write out a map file listing all the resultant data items.
     print("Writing map file for the dataset:")
-    rejected = { pdbid:ndx for ndx,pdbid in enumerate(rejected) }
-    accepted = {}
-    for pdbid in proteins:
-        if pdbid not in rejected:
-            accepted[pdbid] = proteins[pdbid]
-    stats = write_map_file(ligands,accepted)
-    # Get some stats / distributions.
-    bind = 0
-    nobind = 0
-    for pdb in stats:
-        bind += stats[pdb][0]
-        nobind += stats[pdb][1]
-    print("  Proteins:     %d"%(len(accepted)))
-    print("  Ligands:      %d"%(len(ligands)))
-    print("  Bind pairs:   %d"%(bind))
-    print("  Nobind pairs: %d"%(nobind))
-    dist = [ stats[pdb][0]+stats[pdb][1] for pdb in stats ]
-    dist.sort()
-    max_count = max(dist)
-    dist = collections.Counter(dist)
-    print("Writing distribution of ligand counts to 'pdb_dist.dat'.")
-    with open("pdb_dist.dat","w") as distf:
-        for count in range(1,max_count+1):
-            num = dist[count] if count in dist else 0
-            distf.write("%d %d\n"%(count,num))
+    #stats = write_map_file(ligands,proteins)
     print("Success!")
 
 
