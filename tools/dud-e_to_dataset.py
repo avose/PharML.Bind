@@ -95,11 +95,9 @@ def main():
             smiles, mol = nobind[key]
             nobinds.append( [pdbid, key, False] )
     # Write out the final map file.
-    prots_ligs = {}
-    for key in bind:
-        prots_ligs[key] = bind[key]
-    for key in nobind:
-        prots_ligs[key] = nobind[key]
+    prots_ligs = []
+    prots_ligs += binds
+    prots_ligs += nobinds
     print("Writing map file for the dataset:")
     write_map_file(prots_ligs,out=args.out)
     print("  Proteins:     %d"%(len(accepted)))
