@@ -11,9 +11,11 @@ dud-e:
 	mv all dud-e
 	rm -rf dud-e/fgfr1
 
-dataset: dud-e
+data/map/dataset.map: dud-e
 	mkdir -p obsolete
 	bash -c "source ../../tools/enable_env_ubuntu.sh ; python ../../tools/dud-e_to_dataset.py"
+
+dataset: data/map/dataset.map
 
 clean:
 	rm -rf data

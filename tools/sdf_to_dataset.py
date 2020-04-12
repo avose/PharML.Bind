@@ -33,6 +33,8 @@ min_lig_sz  = 8     # atoms
 
 
 def write_lig_file(mol,ligfn):
+    if os.path.exists(ligfn):
+        return
     with open(ligfn,"w") as ligf:
         atoms = mol.GetAtoms();
         # Write number of atoms

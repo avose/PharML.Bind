@@ -75,6 +75,9 @@ def main():
     for pdbid in pdbids:
         if pdbid not in rejected:
             accepted[pdbid] = pdbid
+    pdbids = []
+    for key in accepted:
+        pdbids.append( accepted[key] )
     # Parse all the SDF ligand files.
     binds   = []
     nobinds = []
