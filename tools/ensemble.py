@@ -67,6 +67,21 @@ def ensemble_maps(maps):
     for item in sorted(ensemble.values(), key=lambda e: e[2]):
         key, actual, binds = item
         counts[binds].append(item)
+    # Build some accuracy numbers.
+    apct = 0.0
+    acnt = 0
+    for count in counts:
+        for item in counts[count]:
+            key, actual, binds = item
+            acnt += 1
+            if count == len(dmaps):
+                if actual == 1.0:
+                    apct += 1
+            elif count != len(dmaps):
+                if actual == 0.0:
+                    apct += 1
+    apct = 100.0 * apct / acnt
+    print("Full ensemble accuracy: %.2f%c"%(apct,'%'))
     # Print ensemble info for each prediction count.
     cum_cbinds = 0
     cum_ncount = 0
