@@ -144,9 +144,11 @@ def write_predictions(items,outputs):
         nhg_fn = "../nhg/" + os.path.basename(nhg_fn)
         lig_fn = "../lig/" + os.path.basename(lig_fn)
         target = np.argmax(target)
-        tag = "bind" if target == 1 else "nobind"
-        pred = "pred:%d"%(np.argmax(out))
-        write_predictions.of.write("2 %s %s 1 %f 2 %s %s\n"%(nhg_fn,lig_fn,target,tag,pred))
+        tag   = "bind" if target == 1 else "nobind"
+        pred  = "pred:%d"%(np.argmax(out))
+        pred0 = "pred0:%f"%(out[0])
+        pred1 = "pred1:%f"%(out[1])
+        write_predictions.of.write("2 %s %s 1 %f 4 %s %s %s %s\n"%(nhg_fn,lig_fn,target,tag,pred,pred0,pred1))
     # Flush.
     write_predictions.of.flush()
     
