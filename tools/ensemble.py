@@ -14,6 +14,11 @@ from chemio import read_map
 ############################################################
 
 
+def softmax(x):
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0)
+
+
 def ensemble_maps(maps):
     # Do a sanity-check on item0.
     for m in maps:
@@ -55,10 +60,13 @@ def ensemble_maps(maps):
                 binds += 1
             pred0 = float(tags[2].split(":")[1])
             pred1 = float(tags[3].split(":")[1])
-            ensemble_sum[key][0] += pred0
-            ensemble_sum[key][1] += pred1
+            scores = [pred0, pred1]
+            scores = softmax(scores)
+            pred0, pred1 = scores
+            ensemble_sum[key][0] += pred0 / len(dmaps)
+            ensemble_sum[key][1] += pred1 / len(dmaps)
         ensemble[key] = (key, actual, binds)
-    ensemble_sum = sorted(ensemble_sum.values(), key=lambda e: e[0])
+    ensemble_sum = sorted(ensemble_sum.values(), key=lambda e: e[0]-e[1])
     # Get some totals / global stats.
     total_binds = 0
     total_nobinds = 0
@@ -69,6 +77,30 @@ def ensemble_maps(maps):
         else:
             total_nobinds += 1
     print("  actual: %.2f%% binds (%d/%d)"%(100.0*(total_binds/(total_binds+total_nobinds)),total_binds,total_nobinds))
+    # ROC
+    with open("roc.txt","w") as rocfile:
+        for t in range(100):
+            tp = 0
+            fp = 0
+            tn = 0
+            fn = 0
+            thresh = t/99.0
+            for ndx,item in enumerate(ensemble_sum):
+                pred0, pred1, actual = item
+                if actual == 0.0 and pred0 > thresh:
+                    tn += 1
+                elif actual == 1.0 and pred0 < thresh:
+                    tp += 1
+                elif actual == 0.0 and pred0 < thresh:
+                    fp += 1
+                elif actual == 1.0 and pred0 > thresh:
+                    fn += 1
+            tpr = tp / float(tp+fn) if tp+fn > 0 else 0.0
+            fpr = fp / float(tn+fp) if tn+fp > 0 else 0.0
+            rocfile.write("%f %f\n"%(tpr,fpr))
+            print("ROC: %f %f %f"%(thresh,tpr,fpr))
+            print("CM:  %6d %6d"%(tp,fp))
+            print("CM:  %6d %6d"%(fp,fn))
     # Float combination
     apct = 0.0
     acnt = 0
