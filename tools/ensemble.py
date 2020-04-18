@@ -19,7 +19,7 @@ def softmax(x):
     return e_x / e_x.sum(axis=0)
 
 
-def ensemble_maps(maps):
+def ensemble_maps(maps,pdb=None):
     # Do a sanity-check on item0.
     for m in maps:
         first_item = m[0] #[inputs, outputs, tags]
@@ -37,8 +37,11 @@ def ensemble_maps(maps):
     for mndx,m in enumerate(maps):
         for item in m:
             inputs, outputs, tags = item
-            dmaps[mndx][tuple(inputs)] = [outputs,tags]
-        print("  Map%d: %d items"%(mndx,len(dmaps[mndx])))
+            if pdb == None:
+                dmaps[mndx][tuple(inputs)] = [outputs,tags]
+            elif pdb in inputs[0]:
+                dmaps[mndx][tuple(inputs)] = [outputs,tags]
+    print("Map[0]: %d items"%(len(dmaps[mndx])))
     # Make sure maps have the same items.
     for i,idmap in enumerate(dmaps):
         for ikey in idmap:
@@ -79,6 +82,8 @@ def ensemble_maps(maps):
     print("  actual: %.2f%% binds (%d/%d)"%(100.0*(total_binds/(total_binds+total_nobinds)),total_binds,total_nobinds))
     # ROC
     with open("roc.txt","w") as rocfile:
+        tprs = []
+        fprs = []
         for t in range(100):
             tp = 0
             fp = 0
@@ -97,10 +102,14 @@ def ensemble_maps(maps):
                     fn += 1
             tpr = tp / float(tp+fn) if tp+fn > 0 else 0.0
             fpr = fp / float(tn+fp) if tn+fp > 0 else 0.0
+            tprs.append( tpr )
+            fprs.append( fpr )
             rocfile.write("%f %f\n"%(tpr,fpr))
-            print("ROC: %f %f %f"%(thresh,tpr,fpr))
-            print("CM:  %6d %6d"%(tp,fp))
-            print("CM:  %6d %6d"%(fp,fn))
+            #print("ROC: %f %f %f"%(thresh,tpr,fpr))
+            #print("CM:  %6d %6d"%(tp,fp))
+            #print("CM:  %6d %6d"%(fp,fn))
+    auc_roc = np.trapz(tprs,fprs)
+    print("AUC-ROC: %.6f"%(auc_roc))
     # Float combination
     apct = 0.0
     acnt = 0
@@ -117,8 +126,8 @@ def ensemble_maps(maps):
                 apct += 1
             if ndx % int(len(ensemble_sum)/100) == 0:
                 accfile.write("%f %f %f\n"%(100.0*float(ndx)/len(ensemble_sum),100.0*apct/acnt,bcnt))
-    apct = 100.0 * apct / acnt
-    print("Full ensemble float accuracy: %.2f%c"%(apct,'%'))
+    flt_acc = 100.0 * apct / acnt
+    print("Full ensemble float accuracy: %.2f%c"%(flt_acc,'%'))
     # Build a dict based on bind prediction counts.
     counts = { i:[] for i in reversed(range(len(dmaps)+1)) }
     for item in sorted(ensemble.values(), key=lambda e: e[2]):
@@ -144,7 +153,7 @@ def ensemble_maps(maps):
     cum_ncount = 0
     for count in counts:
         ncount = len(counts[count])
-        ncpct = 100.0 * ncount / len(maps[0])
+        ncpct = 100.0 * ncount / len(dmaps[0])
         cbinds = 0
         for item in counts[count]:
             key, actual, binds = item
@@ -161,8 +170,8 @@ def ensemble_maps(maps):
             IEF = 1.0 / (float(total_binds) / (total_binds+total_nobinds))
             EF = IEF * (float(cum_cbinds) / cum_ncount) 
         print("  count%d: %d  (%.1f%%)  actual_bind%%: %.1f (%.1f cum)  EF(cum): %.2f (ideal %.2f)"%(count,ncount,ncpct,bpct,cbpct,EF,IEF))
-    print("  count*: %d  (100.0%%)"%(len(maps[0])))
-    return
+    print("  count*: %d  (100.0%%)"%(len(dmaps[0])))
+    return flt_acc, auc_roc, total_binds
 
 
 ############################################################
@@ -183,13 +192,30 @@ def main():
     args = parse_args()
     map_fns = args.maps.split(':')
     # Verbose print.
+    print("=========%s========="%("==="))
     print("Creating ensemble from %d map files:"%(len(map_fns)))
     for map_fn in map_fns:
         print("  %s"%(map_fn))
     # Read the map files.
     maps = [ read_map(map_fn) for map_fn in map_fns ]
     # Write out a map file representing the ensemble.
+    print("======== %s ========"%("All"))
     ensemble_maps(maps)
+    print("=========%s========="%("==="))
+    # Do a per-protein analysis.
+    pdbs = {}
+    for item in maps[0]:
+        inputs, outputs, tags = item
+        if inputs[0] not in pdbs:
+            pdbs[inputs[0]] = inputs[0]
+    with open("per_protein.txt","w") as ppfile:
+        ppfile.write("#PDB\tCount\tFloatAcc\tAUC_ROC\n")
+        for key in pdbs:
+            pdb = pdbs[key].replace("../nhg/","").replace(".nhg","")
+            print("======== %s ========"%(pdb))
+            flt_acc, auc_roc, total_binds = ensemble_maps(maps,pdb=pdb)
+            ppfile.write("%s\t%d\t%f\t%f\n"%(pdb,total_binds,flt_acc,auc_roc))
+            print("=========%s========="%("="*len(pdb)))
     print("Success!")
 
     
