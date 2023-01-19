@@ -108,8 +108,14 @@ void read_pdb(state_t *state, char *pdb)
       //
       // ATOM  10143  N   GLY A 831      39.912  17.726  32.558  1.00-0.730           N
       // ATOM  10145  C   GLY A 831      42.161  18.193  33.468  1.00 0.449           C
-      if( strlen(buf) != 80 ) {
-      	Error("read_pdb(): ATOM line not 80 cols (%d) (l %d).\n",strlen(buf),l);
+      //
+      // May be shorter than offical 80 columns:
+      //
+      // ATOM      1  N   ILE     3     -30.582 -20.763  57.829
+      // ATOM      2  CA  ILE     3     -29.314 -20.499  57.159
+      const int bufsl = strlen(buf);
+      if( (bufsl != 54) && (bufsl != 80) ) {
+      	Error("read_pdb(): HETATM line has invalid cols (%d) (l %d).\n",bufsl,l);
       }
       state->natoms++;
       if( !(state->atoms=realloc(state->atoms,state->natoms*sizeof(atom_t))) ) {
@@ -123,9 +129,9 @@ void read_pdb(state_t *state, char *pdb)
 	Error("read_pdb(): Parse ATOM ID failed (\"%s\"). (l %d)\n",tmp,l);
       }
       // Atom type.
-      memcpy(tmp,buf+76,2);
+      memcpy(tmp,buf+13,2);
       tmp[2] = '\0';
-      state->atoms[state->natoms-1].type = tmp[1];
+      state->atoms[state->natoms-1].type = tmp[0];
       // X coord.
       memcpy(tmp,buf+30,8);
       tmp[8] = '\0';
@@ -144,26 +150,31 @@ void read_pdb(state_t *state, char *pdb)
       if( sscanf(tmp,"%lf",&(state->atoms[state->natoms-1].pos.s.z)) != 1 ) {
 	Error("read_pdb(): Parse ATOM z-pos failed (\"%s\"). (l %d)\n",tmp,l);
       }
-      // Charge.
-      memcpy(tmp,buf+78,2);
-      tmp[2] = '\0';
-      if( tmp[0] != ' ' ) {
-	if( sscanf(tmp,"%d",&(state->atoms[state->natoms-1].charge)) != 1 ) {
-	  Error("read_pdb(): Parse ATOM charge failed (\"%s\"). (l %d)\n",tmp,l);
+      if( bufsl == 80 ) {
+	// Charge.
+	memcpy(tmp,buf+78,2);
+	tmp[2] = '\0';
+	if( tmp[0] != ' ' ) {
+	  if( sscanf(tmp,"%d",&(state->atoms[state->natoms-1].charge)) != 1 ) {
+	    Error("read_pdb(): Parse ATOM charge failed (\"%s\"). (l %d)\n",tmp,l);
+	  }
+	} else {
+	  state->atoms[state->natoms-1].charge = 0;
+	}
+	if( tmp[1] == '-' ) {
+	  state->atoms[state->natoms-1].charge *= -1;
 	}
       } else {
 	state->atoms[state->natoms-1].charge = 0;
-      }
-      if( tmp[1] == '-' ) {
-	state->atoms[state->natoms-1].charge *= -1;
       }
     } else if( strncmp(buf,"HETATM",strlen("HETATM")) == 0 ) {
       //
       // Parse "HETATOM" lines (ligand).
       //
       // HETATM10211  C2A FA9 A   1      19.653  34.274  30.097  0.50 0.455           C
-      if( strlen(buf) != 80 ) {
-      	Error("read_pdb(): HETATM line not 80 cols (%d) (l %d).\n",strlen(buf),l);
+      const int bufsl = strlen(buf);
+      if( (bufsl != 54) && (bufsl != 80) ) {
+      	Error("read_pdb(): HETATM line has invalid cols (%d) (l %d).\n",bufsl,l);
       }
       state->nligand++;
       if( !(state->ligand=realloc(state->ligand,state->nligand*sizeof(atom_t))) ) {
@@ -177,12 +188,9 @@ void read_pdb(state_t *state, char *pdb)
 	Error("read_pdb(): Parse HETATM ID failed (\"%s\"). (l %d)\n",tmp,l);
       }
       // Atom type.
-      memcpy(tmp,buf+76,2);
+      memcpy(tmp,buf+13,2);
       tmp[2] = '\0';
-      state->ligand[state->nligand-1].type = tmp[1];
-      if( tmp[0] == 'Z' && tmp[1] == 'N' ) {
-	state->ligand[state->nligand-1].type = 'Z';
-      }
+      state->ligand[state->nligand-1].type = tmp[0];
       // X coord.
       memcpy(tmp,buf+30,8);
       tmp[8] = '\0';
@@ -201,18 +209,22 @@ void read_pdb(state_t *state, char *pdb)
       if( sscanf(tmp,"%lf",&(state->ligand[state->nligand-1].pos.s.z)) != 1 ) {
 	Error("read_pdb(): Parse HETATM z-pos failed (\"%s\"). (l %d)\n",tmp,l);
       }
-      // Charge.
-      memcpy(tmp,buf+78,2);
-      tmp[2] = '\0';
-      if( tmp[0] != ' ' ) {
-	if( sscanf(tmp,"%d",&(state->ligand[state->nligand-1].charge)) != 1 ) {
-	  Error("read_pdb(): Parse HETATM charge failed (\"%s\"). (l %d)\n",tmp,l);
+      if( bufsl == 80 ) {
+	// Charge.
+	memcpy(tmp,buf+78,2);
+	tmp[2] = '\0';
+	if( tmp[0] != ' ' ) {
+	  if( sscanf(tmp,"%d",&(state->ligand[state->nligand-1].charge)) != 1 ) {
+	    Error("read_pdb(): Parse HETATM charge failed (\"%s\"). (l %d)\n",tmp,l);
+	  }
+	} else {
+	  state->ligand[state->nligand-1].charge = 0;
+	}
+	if( tmp[1] == '-' ) {
+	  state->ligand[state->nligand-1].charge *= -1;
 	}
       } else {
-	state->ligand[state->nligand-1].charge = 0;
-      }
-      if( tmp[1] == '-' ) {
-	state->ligand[state->nligand-1].charge *= -1;
+	state->ligand[state->nligand-1].charge = 0;	
       }
     } else if( strncmp(buf,"CONECT",strlen("CONECT")) == 0 ) {
       //
