@@ -42,7 +42,7 @@ static void main_loop()
   // Start the GUI
 #if !defined(NOGUI)
   printf("Starting GUI:\n");
-  StartGUI("MLVoxelizer "VERSION" -- (C) Cray Inc. 2018",((gstate_t*)State));
+  StartGUI("MLVoxelizer "VERSION" -- (C) Maxwell Labs 2023",((gstate_t*)State));
   UpdateGuiState(((gstate_t*)State));
   printf("Done.\n");
   printf("Control now handed to the GUI.\n");
@@ -536,7 +536,7 @@ int main(int argc, char *argv[])
 {
   // Print a startup message.
   printf("+---+ +---+ +---+\n"
-	 "| M | | L | | Vo|xelizer "VERSION" -- (C) Cray Inc. 2018\n"
+	 "| M | | L | | Vo|xelizer "VERSION" -- (C) Maxwell Labs 2023\n"
 	 "+---+ +---+ +---+\n\n");
 
   printf("Version:      %s\n",VERSION);

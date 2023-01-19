@@ -65,7 +65,7 @@ gui_button.o: gui_button.c gui_button.h gui.h types.h Makefile
 gui_stats.o: gui_stats.c gui_stats.h gui.h types.h Makefile
 	${CC} ${OPTS} ${CFLAGS} -c gui_stats.c
 
-gui_3dview.o: gui_3dview.c gui_3dview.h gui.h types.h Makefile
+gui_3dview.o: gui_3dview.c gui_3dview.h maxwell_logo.h gui.h types.h Makefile
 	${CC} ${OPTS} ${CFLAGS} -c gui_3dview.c
 
 gui.o: gui.c gui.h types.h Makefile

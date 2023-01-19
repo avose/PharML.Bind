@@ -7,7 +7,7 @@
 #include "vector.h"
 #include "io_bitmap.h"
 
-#define VERSION "v0.0.24"
+#define VERSION "v0.0.25"
 
 // This needs to match the one in gui.h ...
 typedef struct str_state_t {

@@ -26,7 +26,7 @@
 #include "gui.h"
 #undef GUI_WIDGET
 #include "gui_3dview.h"
-#include "cray_logo.h"
+#include "maxwell_logo.h"
 #include "io_bitmap.h"
 #include "main.h"
 #include "voxelizer.h"
@@ -38,19 +38,19 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static int LoadCrayLogo()
+static int LoadMaxwellLogo()
 {
   u32b_t tex;
   int    i,pixel[3];
-  char  *data = cl_header_data;
+  char  *data = mw_header_data;
   char  *rdata;
 
   // Read the bitmap data from the header file.
-  if( !(rdata = malloc(cl_width*cl_height*3)) ) {
-    Error("LoadCrayLogo(): Failed to allocate space for raw bitmap data.\n");
+  if( !(rdata = malloc(mw_width*mw_height*3)) ) {
+    Error("LoadMaxwellLogo(): Failed to allocate space for raw bitmap data.\n");
   }
-  for(i=0; i<cl_width*cl_height; i++) {
-    CL_HEADER_PIXEL(data,pixel);
+  for(i=0; i<mw_width*mw_height; i++) {
+    MW_HEADER_PIXEL(data,pixel);
     rdata[i*3+0] = pixel[0];
     rdata[i*3+1] = pixel[1];
     rdata[i*3+2] = pixel[2];
@@ -61,7 +61,7 @@ static int LoadCrayLogo()
   glBindTexture(GL_TEXTURE_2D, tex);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, cl_width, cl_height, 0, GL_RGB, GL_UNSIGNED_BYTE, rdata);
+  glTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, mw_width, mw_height, 0, GL_RGB, GL_UNSIGNED_BYTE, rdata);
   
   // Free the bmp pixel data
   free(rdata);
@@ -107,10 +107,10 @@ static void DrawHelpScreen(widget_t *w)
   float a=0.0f, b=1.0f;
   int   l, glxM, glxm;
   
-  // Build Cray logo if needed.
+  // Build Maxwell logo if needed.
   static int clogo = -1;
   if( clogo == -1 ) {
-    clogo = LoadCrayLogo();
+    clogo = LoadMaxwellLogo();
   }
 
   // Draw the logo and header.
@@ -120,36 +120,36 @@ static void DrawHelpScreen(widget_t *w)
   glColor3f(1.0f,1.0f,1.0f);
   glBindTexture(GL_TEXTURE_2D,clogo);
   glBegin(GL_QUADS);
-  glTexCoord2f(a,b); glVertex2f(0.0f, 0.2f/ScaleY(w,1.0f));
-  glTexCoord2f(a,a); glVertex2f(0.0f, 0.0f);
-  glTexCoord2f(b,a); glVertex2f(0.2f/ScaleX(w,1.0f), 0.0f);
-  glTexCoord2f(b,b); glVertex2f(0.2f/ScaleX(w,1.0f), 0.2f/ScaleY(w,1.0f));
+  glTexCoord2f(a,b); glVertex2f(0.01f, 0.21f/ScaleY(w,1.0f));
+  glTexCoord2f(a,a); glVertex2f(0.01f, 0.01f);
+  glTexCoord2f(b,a); glVertex2f(0.21f/ScaleX(w,1.0f), 0.01f);
+  glTexCoord2f(b,b); glVertex2f(0.21f/ScaleX(w,1.0f), 0.21f/ScaleY(w,1.0f));
   glEnd();
   glDisable(GL_TEXTURE_2D);
   glPopMatrix();
   Yellow();
-  sprintf(buf,"MLVoxelizer %s -- (C) Cray Inc. 2018",VERSION);
-  glRasterPos2f(0.21f/ScaleX(w,1.0f), 0.1f/ScaleY(w,1.0f)+4.0f/ScaleY(w,w->h));
+  sprintf(buf,"MLVoxelizer %s -- (C) Maxwell Labs 2023",VERSION);
+  glRasterPos2f(0.22f/ScaleX(w,1.0f), 0.11f/ScaleY(w,1.0f)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
 
   // Draw the help text.
   l = 0;
   Yellow();
   sprintf(buf,"Controls:");
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   White();
   sprintf(buf,"Rotate     --  Right-Click + Drag");
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   sprintf(buf,"Translate  --  Left-Click  + Drag");
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   sprintf(buf,"Zoom       --  Mouse Wheel");
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
 
@@ -157,32 +157,32 @@ static void DrawHelpScreen(widget_t *w)
   l++;
   Yellow();
   sprintf(buf,"Versions:");
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   White();
   sprintf(buf,"MLVoxelizer  --  %s",VERSION);
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   sprintf(buf,"FFTW         --  %s",fftw_version_string());
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   glXQueryVersion(w->glw->dpy, &glxM, &glxm);
   sprintf(buf,"GLX          --  %d.%d",glxM,glxm);
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   sprintf(buf,"OpenGL       --  %s",glGetString(GL_VERSION));
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
   glxM = XProtocolVersion(w->glw->dpy);
   glxm = XProtocolRevision(w->glw->dpy);
   sprintf(buf,"XWindows     --  %d.%d %s %d",glxM,glxm,
 	  XServerVendor(w->glw->dpy),XVendorRelease(w->glw->dpy));
-  glRasterPos2f(0.02f, 0.2f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
+  glRasterPos2f(0.02f, 0.21f/ScaleY(w,1.0f)+0.025f*(1+l)+4.0f/ScaleY(w,w->h));
   printGLf(w->glw->font,"%s",buf);
   l++;
 }
